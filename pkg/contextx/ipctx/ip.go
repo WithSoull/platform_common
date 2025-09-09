@@ -4,7 +4,7 @@ import (
 	"context"
 	"net"
 
-	"github.com/WithSoull/AuthService/internal/contextx"
+	"github.com/WithSoull/platform_common/pkg/contextx"
 	"google.golang.org/grpc/peer"
 )
 

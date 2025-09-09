@@ -3,7 +3,7 @@ package txctx
 import (
 	"context"
 
-	"github.com/WithSoull/AuthService/internal/contextx"
+	"github.com/WithSoull/platform_common/pkg/contextx"
 	"github.com/jackc/pgx/v4"
 )
 
