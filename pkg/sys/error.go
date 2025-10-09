@@ -6,30 +6,30 @@ import (
 	"github.com/WithSoull/platform_common/pkg/sys/codes"
 )
 
-type commonError struct {
+type CommonError struct {
 	msg  string
 	code codes.Code
 }
 
-func NewCommonError(msg string, code codes.Code) *commonError {
-	return &commonError{msg, code}
+func NewCommonError(msg string, code codes.Code) *CommonError {
+	return &CommonError{msg, code}
 }
 
-func (r *commonError) Error() string {
+func (r *CommonError) Error() string {
 	return r.msg
 }
 
-func (r *commonError) Code() codes.Code {
+func (r *CommonError) Code() codes.Code {
 	return r.code
 }
 
 func IsCommonError(err error) bool {
-	var ce *commonError
+	var ce *CommonError
 	return errors.As(err, &ce)
 }
 
-func GetCommonError(err error) *commonError {
-	var ce *commonError
+func GetCommonError(err error) *CommonError {
+	var ce *CommonError
 	if !errors.As(err, &ce) {
 		return nil
 	}
