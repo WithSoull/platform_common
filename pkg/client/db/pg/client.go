@@ -3,9 +3,9 @@ package pg
 import (
 	"context"
 
+	"github.com/WithSoull/platform_common/pkg/client/db"
 	"github.com/pkg/errors"
 
-	"github.com/WithSoull/UserServer/internal/client/db"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
