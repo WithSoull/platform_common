@@ -14,9 +14,8 @@ func InjectTx(ctx context.Context, tx pgx.Tx) context.Context {
 }
 
 func ExtractTx(ctx context.Context) (pgx.Tx, bool) {
-	tx, ok := ctx.Value(TxKey).(pgx.Tx)
-	if !ok {
-		return nil, false
+	if tx, ok := ctx.Value(TxKey).(pgx.Tx); ok {
+		return tx, true
 	}
-	return tx, true
+	return nil, false
 }

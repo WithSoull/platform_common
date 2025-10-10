@@ -25,9 +25,8 @@ func InjectIp(ctx context.Context) context.Context {
 }
 
 func ExtractIP(ctx context.Context) (string, bool) {
-	ip, ok := ctx.Value(IpKey).(string)
-	if !ok {
-		return "unknown", false
+	if ip, ok := ctx.Value(IpKey).(string); ok {
+		return ip, true
 	}
-	return ip, true
+	return "unknown", false
 }
