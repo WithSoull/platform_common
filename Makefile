@@ -5,3 +5,4 @@ get-deps:
 	go get -u github.com/jackc/pgx/v4
 	go get -u github.com/jackc/pgx/v4/pgxpool
 	go get -u github.com/georgysavva/scany/pgxscan
+	go get -u go.uber.org/zap
