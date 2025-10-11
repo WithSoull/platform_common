@@ -14,7 +14,7 @@ import (
 )
 
 // shutdownTimeout default, can be made configurable
-const shutdownTimeout = 5 * time.Second
+const defaultShutdownTimeout = 5 * time.Second
 
 type Logger interface {
 	Info(ctx context.Context, msg string, fields ...zap.Field)
@@ -23,15 +23,45 @@ type Logger interface {
 
 // Closer manages the graceful shutdown process of the application
 type Closer struct {
-	mu     sync.Mutex                    // Protection against race conditions when adding functions
-	once   sync.Once                     // Guarantees single execution of CloseAll
-	done   chan struct{}                 // Channel for completion notification
-	funcs  []func(context.Context) error // Registered shutdown functions
-	logger Logger                        // Logger instance being used
+	mu              sync.RWMutex                  // Protection against race conditions when adding functions
+	closeOnce       sync.Once                     // Ensures CloseAll runs exactly once
+	configuredOnce  sync.Once                     // Ensures Configure runs exactly once
+	done            chan struct{}                 // Channel for completion notification
+	funcs           []func(context.Context) error // Registered shutdown functions
+	logger          Logger                        // Logger instance being used
+	shutdownTimeout time.Duration
 }
 
 // Global instance for use throughout the application
-var globalCloser = NewWithLogger(&logger.NoopLogger{})
+var globalCloser = &Closer{
+	done:            make(chan struct{}),
+	shutdownTimeout: defaultShutdownTimeout,
+}
+
+// Configure configures logger and shutdownTimeout
+// Configure configures the global closer to handle system signals
+func Configure(logger Logger, shutdownTimeout time.Duration, signals ...os.Signal) {
+	globalCloser.configuredOnce.Do(func() {
+		globalCloser.mu.Lock()
+		defer globalCloser.mu.Unlock()
+
+		globalCloser.logger = logger
+		globalCloser.shutdownTimeout = shutdownTimeout
+	})
+
+	go globalCloser.handleSignals(signals...)
+}
+
+// Default logger and shutdownTimeout
+func ConfigureDefault(signals ...os.Signal) {
+	Configure(&logger.NoopLogger{}, defaultShutdownTimeout, signals...)
+}
+
+// Default shutdownTimeout
+// Custom logger
+func ConfigureWithLogger(logger Logger, signals ...os.Signal) {
+	Configure(logger, defaultShutdownTimeout, signals...)
+}
 
 // AddNamed adds a shutdown function with a dependency name for logging to the global closer
 func AddNamed(name string, f func(context.Context) error) {
@@ -48,39 +78,11 @@ func CloseAll(ctx context.Context) error {
 	return globalCloser.CloseAll(ctx)
 }
 
-// SetLogger allows setting a custom logger for the global closer
-func SetLogger(l Logger) {
-	globalCloser.SetLogger(l)
-}
-
-// Configure configures the global closer to handle system signals
-func Configure(signals ...os.Signal) {
-	go globalCloser.handleSignals(signals...)
-}
-
-// New creates a new Closer instance with the default logger log.Default()
-func New(signals ...os.Signal) *Closer {
-	return NewWithLogger(logger.Logger(), signals...)
-}
-
-// NewWithLogger creates a new Closer instance with a specified logger.
-// If signals are provided, Closer will start listening for them and call CloseAll upon receipt.
-func NewWithLogger(logger Logger, signals ...os.Signal) *Closer {
-	c := &Closer{
-		done:   make(chan struct{}),
-		logger: logger,
-	}
-
-	if len(signals) > 0 {
-		go c.handleSignals(signals...)
-	}
-
-	return c
-}
-
-// SetLogger sets the logger for the Closer
-func (c *Closer) SetLogger(l Logger) {
-	c.logger = l
+// Get ShutdownTimeout
+func ShutdownTimeout() time.Duration {
+	globalCloser.mu.RLock()
+	defer globalCloser.mu.RUnlock()
+	return globalCloser.shutdownTimeout
 }
 
 // handleSignals processes system signals and calls CloseAll with a fresh shutdown context
@@ -93,7 +95,7 @@ func (c *Closer) handleSignals(signals ...os.Signal) {
 	case <-ch:
 		c.logger.Info(context.Background(), "system signal received, starting graceful shutdown...")
 
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), ShutdownTimeout())
 		defer shutdownCancel()
 
 		if err := c.CloseAll(shutdownCtx); err != nil {
@@ -135,7 +137,7 @@ func (c *Closer) Add(f ...func(context.Context) error) {
 func (c *Closer) CloseAll(ctx context.Context) error {
 	var result error
 
-	c.once.Do(func() {
+	c.closeOnce.Do(func() {
 		defer close(c.done)
 
 		c.mu.Lock()
