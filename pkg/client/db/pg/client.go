@@ -13,14 +13,14 @@ type pgClient struct {
 	masterDBC db.DB
 }
 
-func NewPGClient(ctx context.Context, dsn string) (db.Client, error) {
+func NewPGClient(ctx context.Context, dsn string, logger Logger) (db.Client, error) {
 	dbc, err := pgxpool.Connect(ctx, dsn)
 	if err != nil {
 		return nil, errors.Errorf("failed to connect to db: %v", err.Error())
 	}
 
 	return &pgClient{
-		masterDBC: &pg{dbc: dbc},
+		masterDBC: NewDB(dbc, logger),
 	}, nil
 }
 
