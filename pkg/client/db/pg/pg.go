@@ -29,9 +29,7 @@ func NewDB(dbc *pgxpool.Pool, logger Logger) db.DB {
 	}
 }
 
-func (p *pg) ScanOneContext(ctx context.Context, dest interface{}, q db.Query, args ...interface{}) error {
-	p.logQuery(ctx, q, args...)
-
+func (p *pg) ScanOneContext(ctx context.Context, dest any, q db.Query, args ...any) error {
 	row, err := p.QueryContext(ctx, q, args...)
 	if err != nil {
 		return err
@@ -40,9 +38,7 @@ func (p *pg) ScanOneContext(ctx context.Context, dest interface{}, q db.Query, a
 	return pgxscan.ScanOne(dest, row)
 }
 
-func (p *pg) ScanAllContext(ctx context.Context, dest interface{}, q db.Query, args ...interface{}) error {
-	p.logQuery(ctx, q, args...)
-
+func (p *pg) ScanAllContext(ctx context.Context, dest any, q db.Query, args ...any) error {
 	rows, err := p.QueryContext(ctx, q, args...)
 	if err != nil {
 		return err
@@ -51,7 +47,7 @@ func (p *pg) ScanAllContext(ctx context.Context, dest interface{}, q db.Query, a
 	return pgxscan.ScanAll(dest, rows)
 }
 
-func (p *pg) ExecContext(ctx context.Context, q db.Query, args ...interface{}) (pgconn.CommandTag, error) {
+func (p *pg) ExecContext(ctx context.Context, q db.Query, args ...any) (pgconn.CommandTag, error) {
 	p.logQuery(ctx, q, args...)
 
 	tx, ok := txctx.ExtractTx(ctx)
@@ -62,7 +58,7 @@ func (p *pg) ExecContext(ctx context.Context, q db.Query, args ...interface{}) (
 	return p.dbc.Exec(ctx, q.QueryRaw, args...)
 }
 
-func (p *pg) QueryContext(ctx context.Context, q db.Query, args ...interface{}) (pgx.Rows, error) {
+func (p *pg) QueryContext(ctx context.Context, q db.Query, args ...any) (pgx.Rows, error) {
 	p.logQuery(ctx, q, args...)
 
 	tx, ok := txctx.ExtractTx(ctx)
@@ -73,7 +69,7 @@ func (p *pg) QueryContext(ctx context.Context, q db.Query, args ...interface{}) 
 	return p.dbc.Query(ctx, q.QueryRaw, args...)
 }
 
-func (p *pg) QueryRowContext(ctx context.Context, q db.Query, args ...interface{}) pgx.Row {
+func (p *pg) QueryRowContext(ctx context.Context, q db.Query, args ...any) pgx.Row {
 	p.logQuery(ctx, q, args...)
 
 	tx, ok := txctx.ExtractTx(ctx)
@@ -96,7 +92,7 @@ func (p *pg) Close() {
 	p.dbc.Close()
 }
 
-func (p *pg) logQuery(ctx context.Context, q db.Query, args ...interface{}) {
+func (p *pg) logQuery(ctx context.Context, q db.Query, args ...any) {
 	prettyQuery := prettier.Pretty(q.QueryRaw, prettier.PlaceholderDollar, args...)
 	p.l.Debug(
 		ctx,
