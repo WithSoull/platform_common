@@ -219,8 +219,8 @@ func addField[T any](
 func fieldsFromContext(ctx context.Context) []zap.Field {
 	fields := make([]zap.Field, 0)
 
-	addField(&fields, ctx, traceidctx.TraceIDKey, traceidctx.ExtractTraceId, zap.Int64)
-	addField(&fields, ctx, traceidctx.TraceIDKey, traceidctx.ExtractTraceId, zap.Int64)
+	addField(&fields, ctx, traceidctx.TraceIDKey, traceidctx.ExtractTraceId, zap.String)
+	addField(&fields, ctx, traceidctx.TraceIDKey, traceidctx.ExtractTraceIDFromSpan, zap.String)
 	addField(&fields, ctx, ipctx.IpKey, ipctx.ExtractIP, zap.String)
 	addField(&fields, ctx, claimsctx.UserIDKey, claimsctx.ExtractUserID, zap.Int64)
 	addField(&fields, ctx, claimsctx.UserEmailKey, claimsctx.ExtractUserEmail, zap.String)
