@@ -11,43 +11,39 @@ import (
 	"github.com/WithSoull/platform_common/pkg/contextx/claimsctx"
 	"github.com/WithSoull/platform_common/pkg/contextx/ipctx"
 	traceidctx "github.com/WithSoull/platform_common/pkg/contextx/traceIDctx"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
+	otelLog "go.opentelemetry.io/otel/log"
+	otelSdkLog "go.opentelemetry.io/otel/sdk/log"
+	"go.opentelemetry.io/otel/sdk/resource"
+	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
-// Глобальный singleton логгер
+// Global singleton logger
 var (
 	globalLogger *logger
 	initOnce     sync.Once
 	dynamicLevel zap.AtomicLevel
+	otelProvider *otelSdkLog.LoggerProvider // OTLP provider for graceful shutdown
+
+	cfg LoggerConfig
 )
 
-// logger обёртка над zap.Logger с enrich поддержкой контекста
 type logger struct {
 	zapLogger *zap.Logger
 }
 
-// Init инициализирует глобальный логгер.
-func Init(levelStr string, asJSON bool) error {
+func Init(loggerConfig LoggerConfig) error {
 	initOnce.Do(func() {
-		dynamicLevel = zap.NewAtomicLevelAt(parseLevel(levelStr))
+		cfg = loggerConfig
+		dynamicLevel = zap.NewAtomicLevelAt(parseLevel(cfg.LogLevel()))
 
-		encoderCfg := buildProductionEncoderConfig()
+		cores := buildCores(cfg.EnableOLTP())
+		tee := zapcore.NewTee(cores...)
 
-		var encoder zapcore.Encoder
-		if asJSON {
-			encoder = zapcore.NewJSONEncoder(encoderCfg)
-		} else {
-			encoder = zapcore.NewConsoleEncoder(encoderCfg)
-		}
-
-		core := zapcore.NewCore(
-			encoder,
-			zapcore.AddSync(os.Stdout),
-			dynamicLevel,
-		)
-
-		zapLogger := zap.New(core, zap.AddCaller(), zap.AddCallerSkip(2))
+		zapLogger := zap.New(tee, zap.AddCaller(), zap.AddCallerSkip(2))
 
 		globalLogger = &logger{
 			zapLogger: zapLogger,
@@ -57,54 +53,106 @@ func Init(levelStr string, asJSON bool) error {
 	return nil
 }
 
+func buildCores(enableOTLP bool) []zapcore.Core {
+	cores := []zapcore.Core{
+		createStdoutCore(),
+	}
+
+	if enableOTLP {
+		if otlpCore := createOTLPCore(); otlpCore != nil {
+			cores = append(cores, otlpCore)
+		}
+	}
+
+	return cores
+}
+
+func createStdoutCore() zapcore.Core {
+	encoderCfg := buildProductionEncoderConfig()
+	var encoder zapcore.Encoder
+	if cfg.AsJSON() {
+		encoder = zapcore.NewJSONEncoder(encoderCfg)
+	} else {
+		encoder = zapcore.NewConsoleEncoder(encoderCfg)
+	}
+
+	return zapcore.NewCore(encoder, zapcore.AddSync(os.Stdout), dynamicLevel)
+}
+
+func createOTLPCore() *SimpleOTLPCore {
+	otlpLogger, err := createOTLPLogger(cfg.OTLPEndpoint())
+	if err != nil {
+		return nil
+	}
+
+	return NewSimpleOTLPCore(otlpLogger, dynamicLevel)
+}
+
+func createOTLPLogger(endpoint string) (otelLog.Logger, error) {
+	ctx := context.Background()
+
+	exporter, err := createOTLPExporter(ctx, cfg.OTLPEndpoint())
+	if err != nil {
+		return nil, err
+	}
+
+	resource, err := createResource(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	provider := otelSdkLog.NewLoggerProvider(
+		otelSdkLog.WithResource(resource),
+		otelSdkLog.WithProcessor(otelSdkLog.NewBatchProcessor(exporter)),
+	)
+
+	return provider.Logger(fmt.Sprintf("logger:%s", cfg.ServiceName())), nil
+}
+
+func createOTLPExporter(ctx context.Context, endpoint string) (*otlploggrpc.Exporter, error) {
+	return otlploggrpc.New(ctx,
+		otlploggrpc.WithEndpoint(endpoint),
+		otlploggrpc.WithInsecure(),
+	)
+}
+
+func createResource(ctx context.Context) (*resource.Resource, error) {
+	return resource.New(ctx,
+		resource.WithAttributes(
+			semconv.ServiceName(cfg.ServiceName()),
+			attribute.String("deployment.environment", cfg.ServiceEnvironment()),
+		),
+	)
+}
+
 func buildProductionEncoderConfig() zapcore.EncoderConfig {
 	return zapcore.EncoderConfig{
-		TimeKey:        "timestamp",                 // время
-		LevelKey:       "level",                     // уровень логирования
-		NameKey:        "logger",                    // имя логгера, если используется
-		CallerKey:      "caller",                    // откуда вызван лог
-		MessageKey:     "message",                   // текст сообщения
-		StacktraceKey:  "stacktrace",                // стектрейс для ошибок
-		LineEnding:     zapcore.DefaultLineEnding,   // перенос строки
-		EncodeLevel:    zapcore.CapitalLevelEncoder, // INFO, ERROR
-		EncodeTime:     zapcore.ISO8601TimeEncoder,  // читаемый ISO 8601 формат
+		TimeKey:        "timestamp",
+		LevelKey:       "level",
+		NameKey:        "logger",
+		CallerKey:      "caller",
+		MessageKey:     "message",
+		StacktraceKey:  "stacktrace",
+		LineEnding:     zapcore.DefaultLineEnding,
+		EncodeLevel:    zapcore.CapitalLevelEncoder,
+		EncodeTime:     zapcore.ISO8601TimeEncoder,
 		EncodeDuration: zapcore.SecondsDurationEncoder,
-		EncodeCaller:   zapcore.ShortCallerEncoder, // короткий caller
+		EncodeCaller:   zapcore.ShortCallerEncoder,
 		EncodeName:     zapcore.FullNameEncoder,
 	}
 }
 
-// SetLevel динамически меняет уровень логирования
-func SetLevel(levelStr string) {
-	if dynamicLevel == (zap.AtomicLevel{}) {
-		return
-	}
-
-	dynamicLevel.SetLevel(parseLevel(levelStr))
-}
-
-func InitForBenchmark() {
-	core := zapcore.NewNopCore()
-
-	globalLogger = &logger{
-		zapLogger: zap.New(core),
-	}
-}
-
-// logger возвращает глобальный enrich-aware логгер
+// Logger() return global enrich-aware logger
 func Logger() *logger {
 	return globalLogger
 }
 
-// NopLogger устанавливает глобальный логгер в no-op режим.
-// Идеально для юнит-тестов.
 func SetNopLogger() {
 	globalLogger = &logger{
 		zapLogger: zap.NewNop(),
 	}
 }
 
-// Sync сбрасывает буферы логгера
 func Sync() error {
 	if globalLogger != nil {
 		return globalLogger.zapLogger.Sync()
@@ -113,7 +161,6 @@ func Sync() error {
 	return nil
 }
 
-// With создает новый enrich-aware логгер с дополнительными полями
 func With(fields ...zap.Field) *logger {
 	if globalLogger == nil {
 		return &logger{zapLogger: zap.NewNop()}
@@ -124,7 +171,6 @@ func With(fields ...zap.Field) *logger {
 	}
 }
 
-// WithContext создает enrich-aware логгер с контекстом
 func WithContext(ctx context.Context) *logger {
 	if globalLogger == nil {
 		return &logger{zapLogger: zap.NewNop()}
@@ -187,7 +233,7 @@ func (l *logger) Fatal(ctx context.Context, msg string, fields ...zap.Field) {
 	l.zapLogger.Fatal(msg, allFields...)
 }
 
-// parseLevel конвертирует строковый уровень в zapcore.Level
+// parseLevel convert string level into zapcore.Level
 func parseLevel(levelStr string) zapcore.Level {
 	switch strings.ToLower(levelStr) {
 	case "debug":
@@ -203,7 +249,7 @@ func parseLevel(levelStr string) zapcore.Level {
 	}
 }
 
-func addField[T any](
+func addFieldFromContext[T any](
 	fields *[]zap.Field,
 	ctx context.Context,
 	key contextx.CtxKey,
@@ -215,15 +261,14 @@ func addField[T any](
 	}
 }
 
-// fieldsFromContext вытаскивает enrich-поля из контекста
 func fieldsFromContext(ctx context.Context) []zap.Field {
 	fields := make([]zap.Field, 0)
 
-	addField(&fields, ctx, traceidctx.TraceIDKey, traceidctx.ExtractTraceId, zap.String)
-	addField(&fields, ctx, traceidctx.TraceIDKey, traceidctx.ExtractTraceIDFromSpan, zap.String)
-	addField(&fields, ctx, ipctx.IpKey, ipctx.ExtractIP, zap.String)
-	addField(&fields, ctx, claimsctx.UserIDKey, claimsctx.ExtractUserID, zap.Int64)
-	addField(&fields, ctx, claimsctx.UserEmailKey, claimsctx.ExtractUserEmail, zap.String)
+	addFieldFromContext(&fields, ctx, traceidctx.TraceIDKey, traceidctx.ExtractTraceId, zap.String)
+	addFieldFromContext(&fields, ctx, traceidctx.TraceIDKey, traceidctx.ExtractTraceIDFromSpan, zap.String)
+	addFieldFromContext(&fields, ctx, ipctx.IpKey, ipctx.ExtractIP, zap.String)
+	addFieldFromContext(&fields, ctx, claimsctx.UserIDKey, claimsctx.ExtractUserID, zap.Int64)
+	addFieldFromContext(&fields, ctx, claimsctx.UserEmailKey, claimsctx.ExtractUserEmail, zap.String)
 
 	return fields
 }

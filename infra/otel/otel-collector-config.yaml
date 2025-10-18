@@ -13,7 +13,14 @@ receivers:
           allowed_headers: ["*"]
 
 # Processors transform and control data flow
+
 processors:
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: dev
+        acrion: insert
+
   batch:
     send_batch_size: ${OTEL_BATCH_SIZE} # Max items per batch
     timeout: ${OTEL_BATCH_TIMEOUT} # Flush interval
@@ -29,15 +36,29 @@ processors:
     sampling_percentage: 100 # 100% for dev; lower in prod
 
 # Exporters send processed data to backends
+
 exporters:
   otlp/jaeger:
     endpoint: ${JAEGER_HOST}:${JAEGER_PORT} # Jaeger OTLP gRPC endpoint
     tls:
       insecure: true # Disable TLS for local dev
+
+  elasticsearch:
+    endpoints: ["http://elasticsearch:9200"]
+
+    tls:
+      insecure: true
+
+    logs_index: "logs-%{+yyyy.MM.dd}"
+
+    mapping:
+      mode: ecs
+
   debug:
     verbosity: ${OTEL_LOG_LEVEL} # Useful for troubleshooting
 
 # Extensions add auxiliary functionality
+
 extensions:
   health_check:
     endpoint: 0.0.0.0:${OTEL_HEALTH_CHECK_PORT} # Liveness/readiness
@@ -50,6 +71,7 @@ extensions:
     endpoint: 0.0.0.0:${OTEL_ZPAGES_PORT} # In-process diagnostics
 
 # Service wires components into pipelines
+
 service:
   extensions: [health_check, pprof, zpages]
   telemetry:
@@ -62,3 +84,7 @@ service:
       receivers: [otlp]
       processors: [memory_limiter, probabilistic_sampler, batch, resourcedetection]
       exporters: [otlp/jaeger, debug]
+    logs:
+      receivers: [otlp]
+      processors: [resourse, batch]
+      exportes: [elasticsearch]
