@@ -54,6 +54,9 @@ exporters:
     mapping:
       mode: ecs
 
+  prometheusremotewrite:
+    endpoint: http://${PROMETHEUS_HOST}:${PROMETHEUS_PORT}/api/v1/write
+
   debug:
     verbosity: ${OTEL_LOG_LEVEL} # Useful for troubleshooting
 
@@ -88,3 +91,7 @@ service:
       receivers: [otlp]
       processors: [resource, batch]
       exporters: [elasticsearch]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheusremotewrite]
