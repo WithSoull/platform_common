@@ -19,7 +19,7 @@ processors:
     attributes:
       - key: deployment.environment
         value: dev
-        acrion: insert
+        action: insert
 
   batch:
     send_batch_size: ${OTEL_BATCH_SIZE} # Max items per batch
@@ -49,7 +49,7 @@ exporters:
     tls:
       insecure: true
 
-    logs_index: "logs-%{+yyyy.MM.dd}"
+    logs_index: "logs"
 
     mapping:
       mode: ecs
@@ -86,5 +86,5 @@ service:
       exporters: [otlp/jaeger, debug]
     logs:
       receivers: [otlp]
-      processors: [resourse, batch]
-      exportes: [elasticsearch]
+      processors: [resource, batch]
+      exporters: [elasticsearch]

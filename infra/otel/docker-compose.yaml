@@ -93,6 +93,7 @@ services:
     environment:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
       - XPACK_SECURITY_ENABLED=false
+      - xpack.encryptedSavedObjects.encryptionKey=REPLACE_WITH_32+_CHAR_STRING
     
     depends_on:
       elasticsearch:
@@ -135,7 +136,7 @@ services:
           sleep 2
         done
         
-        echo "Creating Data View easy-logs* ..."
+        echo "Creating Data View logs* ..."
         RESPONSE=$$(curl -sS -X POST http://kibana:5601/api/data_views/data_view \
           -H "kbn-xsrf: true" \
           -H "Content-Type: application/json" \
