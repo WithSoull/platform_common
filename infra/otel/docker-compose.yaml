@@ -11,13 +11,14 @@ services:
       - "8888:8888" # Collector metrics endpoint
       - "8889:8889" # zpages debug endpoint
       - "4317:4317" # OTLP endpoint for receiving logs 
+
     restart: unless-stopped
     # Auto-restart on failure, not on manual stop
     networks:
       - messenger-network
     env_file: .env
 
-      # Connect to the shared microservices network
+    # Connect to the shared microservices network
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--spider", "http://localhost:8888/metrics"]
       interval: 10s
@@ -29,7 +30,8 @@ services:
         condition: service_healthy
       elasticsearch:
         condition: service_healthy
-
+      prometheus:
+        condition: service_healthy
 
   jaeger:
     image: jaegertracing/jaeger:2.6.0
@@ -164,6 +166,58 @@ services:
     
     restart: "no"
 
+  prometheus:
+    image: prom/prometheus:v3.3.1
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml # mount prometheus config
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+      - '--web.enable-remote-write-receiver'
+    healthcheck:
+      test: [ "CMD", "wget", "--quiet", "--spider", "http://localhost:9090/-/healthy" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    restart: unless-stopped
+
+    networks:
+      - messenger-network
+
+  grafana:
+    image: grafana/grafana:12.0.0
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_healthy
+
+    healthcheck:
+      test: [ "CMD", "wget", "--quiet", "--spider", "http://localhost:3000/api/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    restart: unless-stopped
+
+    networks:
+      - messenger-network
+
 networks:
   messenger-network:
     external: true
@@ -174,3 +228,5 @@ volumes:
 
   es_data: # Elacstic search volume for storing logs
 
+  prometheus_data:
+  grafana_data: 

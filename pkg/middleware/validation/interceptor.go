@@ -57,9 +57,9 @@ func ErrorCodesInterceptor(logger Logger) grpc.UnaryServerInterceptor {
 		}
 
 		if badErr {
-			logger.Error(ctx, "error interceptor hanlde error", zap.Error(err))
+			logger.Error(ctx, "error interceptor handle error", zap.Error(err))
 		} else {
-			logger.Info(ctx, "error interceptor hanlde error", zap.Error(err))
+			logger.Info(ctx, "error interceptor handle error", zap.Error(err))
 		}
 
 		return res, err
