@@ -27,7 +27,6 @@ var (
 )
 
 // Init инициализирует все инструменты метрик
-// Должна вызываться после настройки глобального MeterProvider
 func Init(_ context.Context, cfg MetricsConfig) error {
 	once.Do(func() {
 		meter = otel.Meter(cfg.ServiceName())
@@ -86,6 +85,7 @@ func HistogramResponseTimeObserve(ctx context.Context, status string, time float
 }
 
 func InitOTELMetrics(cfg MetricsConfig) (*sdkmetric.MeterProvider, error) {
+	log.Printf("endpoint: %s", cfg.OTLPEndpoint())
 	exporter, err := otlpmetricgrpc.New(
 		context.Background(),
 		otlpmetricgrpc.WithEndpoint(cfg.OTLPEndpoint()),

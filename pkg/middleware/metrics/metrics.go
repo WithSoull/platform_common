@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/WithSoull/platform_common/pkg/metric"
@@ -23,6 +24,8 @@ func MetricsInterceptor(ctx context.Context, req interface{}, info *grpc.UnarySe
 		metric.IncResponseCounter(ctx, "success", info.FullMethod)
 		metric.HistogramResponseTimeObserve(ctx, "success", diffTime.Seconds())
 	}
+
+	log.Printf("MetricsInterceptor really works")
 
 	return res, err
 }
