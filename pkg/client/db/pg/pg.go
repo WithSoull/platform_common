@@ -33,15 +33,40 @@ func NewDB(dbc *pgxpool.Pool, logger Logger, cfg PGConfig) db.DB {
 }
 
 func (p *pg) withOpTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
-	if p.cfg == nil || p.cfg.Timeout() <= 0 {
+	t := time.Duration(0)
+	if p.cfg != nil {
+		t = p.cfg.Timeout()
+	}
+	p.l.Debug(ctx, "withOpTimeout: incoming",
+		zap.Duration("cfg_timeout", t),
+		zap.Bool("has_deadline", func() bool { _, ok := ctx.Deadline(); return ok }()),
+	)
+
+	if p.cfg == nil || t <= 0 {
+		p.l.Debug(ctx, "withOpTimeout: skip (no cfg or non-positive timeout)")
 		return ctx, func() {}
 	}
+
 	if dl, ok := ctx.Deadline(); ok {
-		if time.Until(dl) <= p.cfg.Timeout() {
+		until := time.Until(dl)
+		p.l.Debug(ctx, "withOpTimeout: incoming deadline present",
+			zap.Time("deadline", dl),
+			zap.Duration("time_until_deadline", until),
+		)
+		if until <= t {
+			p.l.Debug(ctx, "withOpTimeout: keep incoming deadline (stricter)")
 			return ctx, func() {}
 		}
 	}
-	return context.WithTimeout(ctx, p.cfg.Timeout())
+
+	ctx, cancel := context.WithTimeout(ctx, t)
+	if dl, ok := ctx.Deadline(); ok {
+		p.l.Debug(ctx, "withOpTimeout: applied timeout",
+			zap.Time("deadline", dl),
+			zap.Duration("time_until_deadline", time.Until(dl)),
+		)
+	}
+	return ctx, cancel
 }
 
 func (p *pg) ScanOneContext(ctx context.Context, dest any, q db.Query, args ...any) error {
@@ -120,11 +145,12 @@ func (p *pg) Close() {
 }
 
 func (p *pg) logQuery(ctx context.Context, q db.Query, args ...any) {
+	_, inTx := txctx.ExtractTx(ctx)
 	prettyQuery := prettier.Pretty(q.QueryRaw, prettier.PlaceholderDollar, args...)
-	p.l.Debug(
-		ctx,
-		"PG Query",
-		zap.String("sql", q.Name),
+	p.l.Debug(ctx, "PG Query",
+		zap.String("name", q.Name),
+		zap.Bool("in_tx", inTx),
+		zap.Int("args_len", len(args)),
 		zap.String("query", prettyQuery),
 	)
 }
