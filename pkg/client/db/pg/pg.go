@@ -120,11 +120,12 @@ func (p *pg) Close() {
 }
 
 func (p *pg) logQuery(ctx context.Context, q db.Query, args ...any) {
+	_, inTx := txctx.ExtractTx(ctx)
 	prettyQuery := prettier.Pretty(q.QueryRaw, prettier.PlaceholderDollar, args...)
-	p.l.Debug(
-		ctx,
-		"PG Query",
-		zap.String("sql", q.Name),
+	p.l.Debug(ctx, "PG Query",
+		zap.String("name", q.Name),
+		zap.Bool("in_tx", inTx),
+		zap.Int("args_len", len(args)),
 		zap.String("query", prettyQuery),
 	)
 }
