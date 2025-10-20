@@ -18,10 +18,6 @@ type Logger interface {
 	Debug(ctx context.Context, msg string, fields ...zap.Field)
 }
 
-type PGConfig interface {
-	Timeout() time.Duration
-}
-
 type pg struct {
 	dbc *pgxpool.Pool
 	l   Logger

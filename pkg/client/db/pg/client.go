@@ -2,6 +2,7 @@ package pg
 
 import (
 	"context"
+	"time"
 
 	"github.com/WithSoull/platform_common/pkg/client/db"
 	"github.com/pkg/errors"
@@ -13,14 +14,19 @@ type pgClient struct {
 	masterDBC db.DB
 }
 
-func NewPGClient(ctx context.Context, dsn string, logger Logger) (db.Client, error) {
-	dbc, err := pgxpool.Connect(ctx, dsn)
+type PGConfig interface {
+	DSN() string
+	Timeout() time.Duration
+}
+
+func NewPGClient(ctx context.Context, logger Logger, cfg PGConfig) (db.Client, error) {
+	dbc, err := pgxpool.Connect(ctx, cfg.DSN())
 	if err != nil {
 		return nil, errors.Errorf("failed to connect to db: %v", err.Error())
 	}
 
 	return &pgClient{
-		masterDBC: NewDB(dbc, logger),
+		masterDBC: NewDB(dbc, logger, cfg),
 	}, nil
 }
 
