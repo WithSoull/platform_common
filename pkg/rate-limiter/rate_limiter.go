@@ -44,7 +44,11 @@ func (l *TokenBucketLimiter) startPeriodicReplenishment(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			l.tokenBucketCh <- struct{}{}
+			select {
+			case l.tokenBucketCh <- struct{}{}:
+			default:
+				// bucket full — skip to avoid blocking
+			}
 		}
 	}
 }
