@@ -1,4 +1,4 @@
-package validationInterceptor
+package validation
 
 import (
 	customCodes "github.com/WithSoull/platform_common/pkg/sys/codes"

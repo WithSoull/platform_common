@@ -1,21 +1,21 @@
-package rateLimiterInterceptor
+package ratelimiter
 
 import (
 	"context"
 
-	rateLimiter "github.com/WithSoull/platform_common/pkg/rate-limiter"
+	"github.com/WithSoull/platform_common/pkg/ratelimiter"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 type RateLimiterInterceptor struct {
-	rateLimiter *rateLimiter.TokenBucketLimiter
+	rateLimiter *ratelimiter.TokenBucketLimiter
 }
 
-func NewRateLimiterInterceptor(ctx context.Context, cfg rateLimiter.RateLimiterConfig) *RateLimiterInterceptor {
+func NewRateLimiterInterceptor(ctx context.Context, cfg ratelimiter.RateLimiterConfig) *RateLimiterInterceptor {
 	return &RateLimiterInterceptor{
-		rateLimiter: rateLimiter.NewTokenBucketLimiter(ctx, cfg),
+		rateLimiter: ratelimiter.NewTokenBucketLimiter(ctx, cfg),
 	}
 }
 

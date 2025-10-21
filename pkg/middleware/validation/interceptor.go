@@ -1,4 +1,4 @@
-package validationInterceptor
+package validation
 
 import (
 	"context"
@@ -22,7 +22,7 @@ type Logger interface {
 }
 
 func ErrorCodesInterceptor(logger Logger) grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (res interface{}, err error) {
+	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (res any, err error) {
 		res, err = handler(ctx, req)
 		if nil == err {
 			return res, nil
