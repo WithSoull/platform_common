@@ -28,40 +28,31 @@ func ErrorCodesInterceptor(logger Logger) grpc.UnaryServerInterceptor {
 			return res, nil
 		}
 
-		badErr := false
-
 		switch {
 		case sys.IsCommonError(err):
 			commEr := sys.GetCommonError(err)
 			code := toGRPCCode(commEr.Code())
 
-			err = status.Error(code, commEr.Error())
+			logger.Info(ctx, "error interceptor handle common error", zap.Error(err))
+			return nil, status.Error(code, commEr.Error())
 
 		case validate.IsValidationError(err):
-			err = status.Error(grpcCodes.InvalidArgument, err.Error())
-
+			logger.Info(ctx, "error interceptor handle validation error", zap.Error(err))
+			return nil, status.Error(grpcCodes.InvalidArgument, err.Error())
 		default:
-			badErr = true
 			var se GRPCStatusInterface
 			if errors.As(err, &se) {
 				return nil, se.GRPCStatus().Err()
 			} else {
+				logger.Error(ctx, "error interceptor handle validation error", zap.Error(err))
 				if errors.Is(err, context.DeadlineExceeded) {
-					err = status.Error(grpcCodes.DeadlineExceeded, err.Error())
+					return nil, status.Error(grpcCodes.DeadlineExceeded, err.Error())
 				} else if errors.Is(err, context.Canceled) {
-					err = status.Error(grpcCodes.Canceled, err.Error())
+					return nil, status.Error(grpcCodes.Canceled, err.Error())
 				} else {
-					err = status.Error(grpcCodes.Internal, "internal error")
+					return nil, status.Error(grpcCodes.Internal, "internal error")
 				}
 			}
 		}
-
-		if badErr {
-			logger.Error(ctx, "error interceptor handle error", zap.Error(err))
-		} else {
-			logger.Info(ctx, "error interceptor handle error", zap.Error(err))
-		}
-
-		return res, err
 	}
 }
