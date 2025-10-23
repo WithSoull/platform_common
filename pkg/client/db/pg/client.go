@@ -17,6 +17,7 @@ type pgClient struct {
 type PGConfig interface {
 	DSN() string
 	Timeout() time.Duration
+	NeedLog() bool
 }
 
 func NewPGClient(ctx context.Context, logger Logger, cfg PGConfig) (db.Client, error) {

@@ -120,6 +120,10 @@ func (p *pg) Close() {
 }
 
 func (p *pg) logQuery(ctx context.Context, q db.Query, args ...any) {
+	if !p.cfg.NeedLog() {
+		return
+	}
+
 	_, inTx := txctx.ExtractTx(ctx)
 	prettyQuery := prettier.Pretty(q.QueryRaw, prettier.PlaceholderDollar, args...)
 	p.l.Debug(ctx, "PG Query",
