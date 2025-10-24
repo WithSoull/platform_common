@@ -15,7 +15,7 @@ services:
     restart: unless-stopped
     # Auto-restart on failure, not on manual stop
     networks:
-      - messenger-network
+      - messanger-network
     env_file: .env
 
     # Connect to the shared microservices network
@@ -61,7 +61,7 @@ services:
       start_period: 5s # Delay before starting checks
     restart: unless-stopped
     networks:
-      - messenger-network
+      - messanger-network
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:9.0.4
@@ -89,7 +89,7 @@ services:
     restart: unless-stopped
 
     networks:
-      - messenger-network
+      - messanger-network
 
   kibana:
     image: docker.elastic.co/kibana/kibana:9.0.4
@@ -117,7 +117,7 @@ services:
     
     restart: unless-stopped
     networks:
-      - messenger-network
+      - messanger-network
 
   kibana-init: # This is special container for auto creating data view in Kibana
     image: alpine:3.21
@@ -167,7 +167,7 @@ services:
         echo "Done."
     
     networks:
-      - messenger-network
+      - messanger-network
     
     restart: "no"
 
@@ -195,7 +195,7 @@ services:
     restart: unless-stopped
 
     networks:
-      - messenger-network
+      - messanger-network
 
   grafana:
     image: grafana/grafana:12.0.0
@@ -223,10 +223,10 @@ services:
     restart: unless-stopped
 
     networks:
-      - messenger-network
+      - messanger-network
 
 networks:
-  messenger-network:
+  messanger-network:
     external: true
 
 volumes: 
