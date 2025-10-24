@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package events.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/WithSoull/platform_common/pkg/proto/events/v1;events_v1";
+
+message UserCreated {
+  int64 user_id = 1;
+  google.protobuf.Timestamp created_at = 2;
+}
+
+message UserDeleted {
+  int64 user_id = 1;
+  google.protobuf.Timestamp deleted_at = 2;
+};
