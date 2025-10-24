@@ -8,5 +8,6 @@ get-deps:
 	go get -u go.uber.org/zap
 	go get -u github.com/sony/gobreaker
 
-	go get -u go.opentelemetry.io
 	go get -u go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc
+
+	go get -u github.com/IBM/sarama
