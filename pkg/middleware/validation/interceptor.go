@@ -12,7 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type GRPCStatusInterface interface {
+type GRPCStatus interface {
 	GRPCStatus() *status.Status
 }
 
@@ -21,38 +21,51 @@ type Logger interface {
 	Error(ctx context.Context, msg string, fields ...zap.Field)
 }
 
-func ErrorCodesInterceptor(logger Logger) grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (res any, err error) {
-		res, err = handler(ctx, req)
-		if nil == err {
-			return res, nil
-		}
+// handleError maps commonErr, validationErr, and context errors to gRPC status errors and logs at appropriate levels
+func handleError(ctx context.Context, err error, logger Logger) error {
+	if nil == err {
+		return nil
+	}
+	switch {
+	case sys.IsCommonError(err):
+		commonErr := sys.GetCommonError(err)
+		code := toGRPCCode(commonErr.Code())
 
-		switch {
-		case sys.IsCommonError(err):
-			commEr := sys.GetCommonError(err)
-			code := toGRPCCode(commEr.Code())
+		logger.Info(ctx, "error interceptor handle common error", zap.Error(err))
+		return status.Error(code, commonErr.Error())
 
-			logger.Info(ctx, "error interceptor handle common error", zap.Error(err))
-			return nil, status.Error(code, commEr.Error())
-
-		case validate.IsValidationError(err):
-			logger.Info(ctx, "error interceptor handle validation error", zap.Error(err))
-			return nil, status.Error(grpcCodes.InvalidArgument, err.Error())
-		default:
-			var se GRPCStatusInterface
-			if errors.As(err, &se) {
-				return nil, se.GRPCStatus().Err()
+	case validate.IsValidationError(err):
+		logger.Info(ctx, "error interceptor handle validation error", zap.Error(err))
+		return status.Error(grpcCodes.InvalidArgument, err.Error())
+	default:
+		var se GRPCStatus
+		if errors.As(err, &se) {
+			return se.GRPCStatus().Err()
+		} else {
+			if errors.Is(err, context.DeadlineExceeded) {
+				logger.Info(ctx, "error interceptor deadlineExceeded error", zap.Error(err))
+				return status.Error(grpcCodes.DeadlineExceeded, err.Error())
+			} else if errors.Is(err, context.Canceled) {
+				logger.Info(ctx, "error interceptor handle canceled context", zap.Error(err))
+				return status.Error(grpcCodes.Canceled, err.Error())
 			} else {
-				logger.Error(ctx, "error interceptor handle validation error", zap.Error(err))
-				if errors.Is(err, context.DeadlineExceeded) {
-					return nil, status.Error(grpcCodes.DeadlineExceeded, err.Error())
-				} else if errors.Is(err, context.Canceled) {
-					return nil, status.Error(grpcCodes.Canceled, err.Error())
-				} else {
-					return nil, status.Error(grpcCodes.Internal, "internal error")
-				}
+				logger.Error(ctx, "error interceptor internal error", zap.Error(err))
+				return status.Error(grpcCodes.Internal, "internal error")
 			}
 		}
+	}
+}
+
+func ErrorCodesUnaryInterceptor(logger Logger) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (res any, err error) {
+		res, err = handler(ctx, req)
+		return res, handleError(ctx, err, logger)
+	}
+}
+
+func ErrorCodesStreamInterceptor(logger Logger) grpc.StreamServerInterceptor {
+	return func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+		err := handler(srv, ss)
+		return handleError(ss.Context(), err, logger)
 	}
 }
