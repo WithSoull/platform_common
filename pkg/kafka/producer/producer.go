@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/IBM/sarama"
+	"github.com/WithSoull/platform_common/pkg/kafka"
 	"go.uber.org/zap"
 )
 
@@ -12,17 +13,13 @@ type Logger interface {
 	Error(ctx context.Context, msg string, fields ...zap.Field)
 }
 
-// PrettyDecoder is function for decoding raw bytes
-// to human-read json (string)
-type PrettyDecoder func([]byte) (josn string, ok bool)
-
 type producer struct {
 	syncProducer sarama.SyncProducer
 	topic        string
 	logger       Logger
 }
 
-func NewProducer(syncProducer sarama.SyncProducer, topic string, logger Logger) *producer {
+func NewProducer(syncProducer sarama.SyncProducer, topic string, logger Logger) kafka.Producer {
 	return &producer{
 		syncProducer: syncProducer,
 		topic:        topic,
@@ -30,7 +27,7 @@ func NewProducer(syncProducer sarama.SyncProducer, topic string, logger Logger) 
 	}
 }
 
-func (p *producer) Send(ctx context.Context, key, value []byte, pretty PrettyDecoder) error {
+func (p *producer) Send(ctx context.Context, key, value []byte, pretty kafka.PrettyDecoder) error {
 	partition, offset, err := p.syncProducer.SendMessage(&sarama.ProducerMessage{
 		Topic: p.topic,
 		Key:   sarama.ByteEncoder(key),

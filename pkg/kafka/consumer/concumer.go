@@ -22,7 +22,7 @@ type consumer struct {
 	middlewares []Middleware
 }
 
-func NewConsumer(group sarama.ConsumerGroup, topics []string, logger Logger, middlewares ...Middleware) *consumer {
+func NewConsumer(group sarama.ConsumerGroup, topics []string, logger Logger, middlewares ...Middleware) kafka.Consumer {
 	return &consumer{
 		group:       group,
 		topics:      topics,
