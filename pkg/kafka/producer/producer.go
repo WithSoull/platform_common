@@ -12,6 +12,10 @@ type Logger interface {
 	Error(ctx context.Context, msg string, fields ...zap.Field)
 }
 
+// PrettyDecoder is function for decoding raw bytes
+// to human-read json (string)
+type PrettyDecoder func([]byte) (josn string, ok bool)
+
 type producer struct {
 	syncProducer sarama.SyncProducer
 	topic        string
@@ -26,7 +30,7 @@ func NewProducer(syncProducer sarama.SyncProducer, topic string, logger Logger) 
 	}
 }
 
-func (p *producer) Send(ctx context.Context, key, value []byte) error {
+func (p *producer) Send(ctx context.Context, key, value []byte, pretty PrettyDecoder) error {
 	partition, offset, err := p.syncProducer.SendMessage(&sarama.ProducerMessage{
 		Topic: p.topic,
 		Key:   sarama.ByteEncoder(key),
@@ -37,13 +41,21 @@ func (p *producer) Send(ctx context.Context, key, value []byte) error {
 		return err
 	}
 
-	p.logger.Info(ctx, "Message sent",
-		zap.String("topic", p.topic),
+	fields := []zap.Field{
 		zap.Int32("partition", partition),
 		zap.Int64("offset", offset),
-		zap.String("key", string(key)),
-		zap.String("value", string(value)),
-	)
-
+		zap.ByteString("key", key),
+		zap.Int("value_size", len(value)),
+	}
+	if pretty != nil {
+		if js, ok := pretty(value); ok {
+			fields = append(fields, zap.String("value_json", js))
+		} else {
+			fields = append(fields, zap.Binary("value_raw", value))
+		}
+	} else {
+		fields = append(fields, zap.Binary("value_raw", value))
+	}
+	p.logger.Info(ctx, "Message sent", fields...)
 	return nil
 }

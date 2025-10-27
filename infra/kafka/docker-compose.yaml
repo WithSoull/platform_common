@@ -64,6 +64,20 @@ services:
       KAFKA_CLUSTERS_0_NAME: "local-cluster"
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: "kafka:${KAFKA_INTERNAL_PORT}"
 
+      # Встроенный ProtobufFile SerDe (без className)
+      KAFKA_CLUSTERS_0_SERDE_0_NAME: ProtobufFile
+      KAFKA_CLUSTERS_0_SERDE_0_PROPERTIES_PROTOBUFFILESDIR: /proto
+      KAFKA_CLUSTERS_0_SERDE_0_PROPERTIES_PROTOBUFMESSAGENAME: events.v1.UserCreated
+      KAFKA_CLUSTERS_0_SERDE_0_PROPERTIES_PROTOBUFMESSAGENAMEBYTOPIC_UserCreated: events.v1.UserCreated
+      KAFKA_CLUSTERS_0_SERDE_0_PROPERTIES_PROTOBUFMESSAGENAMEBYTOPIC_UserDeleted: events.v1.UserDeleted
+
+      # Автоподбор ProtobufFile на страницах просмотра/продьюса
+      KAFKA_CLUSTERS_0_SERDE_0_TOPICVALUESPATTERN: "UserCreated|UserDeleted"
+
+      # Дефолтный value serde на уровне кластера
+      KAFKA_CLUSTERS_0_DEFAULTVALUESERDE: ProtobufFile
+
+
     depends_on:
       kafka:
         condition: service_healthy
@@ -79,6 +93,8 @@ services:
 
     networks:
       - messanger-network
+    volumes:
+      - ../../proto:/proto:ro
 
 volumes:
   kafka_data:
