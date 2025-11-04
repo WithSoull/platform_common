@@ -10,6 +10,6 @@ type UserClaims struct {
 }
 
 type UserInfo interface {
-	UserId() int64
-	Email() string
+	GetUserID() int64
+	GetEmail() string
 }

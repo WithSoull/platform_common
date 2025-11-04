@@ -60,8 +60,8 @@ func (j *JWTService) generateToken(ctx context.Context, info tokens.UserInfo, du
 			IssuedAt:  jwt.NewNumericDate(now),
 			NotBefore: jwt.NewNumericDate(now),
 		},
-		UserId:    info.UserId(),
-		Email:     info.Email(),
+		UserId:    info.GetUserID(),
+		Email:     info.GetEmail(),
 		TokenType: string(tokenType),
 	}
 
