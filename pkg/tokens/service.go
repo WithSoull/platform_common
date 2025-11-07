@@ -14,7 +14,7 @@ type TokenVerifier interface {
 	VerifyRefreshToken(context.Context, string) (*UserClaims, error)
 }
 
-type TokenSevice interface {
+type TokenService interface {
 	TokenGenerator
 	TokenVerifier
 }

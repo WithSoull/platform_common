@@ -28,7 +28,7 @@ type JWTService struct {
 	verifier  tokens.TokenVerifier
 }
 
-func NewJWTService(cfg JWTServiceConfig) tokens.TokenSevice {
+func NewJWTService(cfg JWTServiceConfig) tokens.TokenService {
 	return &JWTService{
 		cfg:       cfg,
 		generator: NewJWTGenerator(cfg),
