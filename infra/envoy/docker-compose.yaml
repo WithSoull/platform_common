@@ -1,0 +1,29 @@
+services:
+  envoy:
+    image: envoyproxy/envoy:v1.36.0
+    container_name: envoy
+
+    volumes:
+      - ./envoy.yaml:/etc/envoy/envoy.yaml
+      - ./messanger_descriptor.pb:/etc/envoy/messanger_descriptor.pb
+      - ./cert.pem:/etc/envoy/certs/ca-cert.pem
+
+    ports:
+      - "${ENVOY_PORT}:8080"
+      - "${ENVOY_ADMIN_PORT}:8081"
+
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 1 bash -c '</dev/tcp/localhost/8081'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+    networks:
+      - messanger-network
+
+    restart: unless-stopped
+
+networks:
+  messanger-network:
+    external: true
