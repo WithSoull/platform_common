@@ -69,7 +69,7 @@ static_resources:
                     inline_string: |
                       {
                         "error": "Not Found",
-                        "message": "Available endpoints: /api/v1/user, /api/v1/auth, /api/v1/chat",
+                        "message": "Available endpoints: /api/v1/user, /api/v1/auth, /api/v1/chats",
                       }
 
           http_filters:
